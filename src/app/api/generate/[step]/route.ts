@@ -59,7 +59,17 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
   }
 
-  const { systemPrompt, userPrompt } = buildPrompts(stepNumber, variables);
+  // Chercher un prompt personnalisé en BDD
+  const customPrompt = await prisma.promptTemplate.findFirst({
+    where: { stepNumber, isActive: true },
+  });
+
+  const { systemPrompt, userPrompt } = buildPrompts(
+    stepNumber,
+    variables,
+    customPrompt?.systemPrompt ?? undefined,
+    customPrompt?.userPromptTemplate ?? undefined
+  );
 
   // Config par étape
   const stepDef = getStepByNumber(stepNumber);

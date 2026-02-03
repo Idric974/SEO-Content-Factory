@@ -27,6 +27,7 @@ import {
   parseMetaOutput,
 } from "@/components/workflow/MetaSelector";
 import { StepImages } from "@/components/workflow/StepImages";
+import { StepExport } from "@/components/workflow/StepExport";
 
 interface StepData {
   id: string;
@@ -334,31 +335,27 @@ export default function StepPage() {
     );
   }
 
-  // Étape 15 : Export (non encore implémentée)
+  // Étape 15 : Export
   if (stepNumber === 15) {
     return (
       <>
-        <Header title={stepDef?.name ?? `Étape ${stepNumber}`} />
+        <Header title={stepDef?.name ?? "Export"} />
         <div className="p-6">
-          <div className="mb-6">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={`/projects/${projectId}`}>
-                <ArrowLeft className="mr-1 h-4 w-4" />
-                Retour au projet
-              </Link>
-            </Button>
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/projects/${projectId}/steps/14`}>
+                  <ArrowLeft className="mr-1 h-4 w-4" />
+                  Données structurées
+                </Link>
+              </Button>
+            </div>
+            <Badge variant="outline">
+              Étape 15 / {WORKFLOW_STEPS.length - 1}
+            </Badge>
           </div>
-          <Card className="mx-auto max-w-3xl">
-            <CardHeader>
-              <CardTitle>{stepDef?.name}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{stepDef?.description}</p>
-              <Badge variant="secondary" className="mt-4">
-                Disponible dans une prochaine phase
-              </Badge>
-            </CardContent>
-          </Card>
+
+          <StepExport projectId={projectId} />
         </div>
       </>
     );

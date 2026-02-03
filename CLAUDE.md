@@ -68,11 +68,15 @@ Application web locale pour produire des articles de blog SEO de A à Z, avec un
 - Logging des coûts DALL-E dans api_usage_logs
 - Étape 11 intégrée dans la page étape (plus de placeholder)
 
-### Phase 6 - Export & Polish (à faire)
-- Export WordPress (REST API ou XML)
-- Export DOCX / Markdown
-- Dashboard des coûts API
-- Page settings/prompts pour éditer les templates
+### Phase 6 - Export & Polish ✅
+- Dashboard coûts API (/settings/costs) : résumé, graphique 7 jours, détail par modèle/projet, logs récents
+- Éditeur de prompts (/settings/prompts) : modification des templates par étape avec sauvegarde en BDD, retour au défaut
+- API /api/prompts : CRUD templates, intégré dans le moteur de génération
+- API /api/costs : agrégations par provider, modèle, projet, période
+- Bibliothèque export (src/lib/export/) : assemblage article, Markdown, DOCX, WordPress HTML/REST API
+- API /api/export : endpoint unifié pour tous les formats (markdown, docx, html, wordpress, preview)
+- Composant StepExport : prévisualisation, téléchargement MD/DOCX/HTML, copier HTML, publication WordPress REST API
+- Étape 15 intégrée (plus de placeholder), marque le projet comme "completed"
 
 ## Structure des fichiers clés
 ```
@@ -90,18 +94,28 @@ src/
     api/projects/[id]/steps/[step]/route.ts  # Validation étapes
     api/generate/[step]/route.ts  # Génération Claude SSE
     api/images/route.ts         # Génération images DALL-E
+    api/costs/route.ts          # Dashboard coûts API
+    api/prompts/route.ts        # CRUD templates prompts
+    api/export/route.ts         # Export article (MD, DOCX, HTML, WP)
+    settings/costs/page.tsx     # Page dashboard coûts
+    settings/prompts/page.tsx   # Page éditeur prompts
   components/
     layout/AppSidebar.tsx, Header.tsx
     workflow/StepTimeline.tsx, GenerateButton.tsx, OutputEditor.tsx,
              ValidationPanel.tsx, ChoiceSelector.tsx, StepContext.tsx,
-             MetaSelector.tsx, ImageGallery.tsx, StepImages.tsx
+             MetaSelector.tsx, ImageGallery.tsx, StepImages.tsx,
+             StepExport.tsx
   lib/
     prisma/client.ts            # Singleton Prisma (adapter-pg)
     claude/client.ts            # Wrapper Claude API
     claude/costs.ts             # Calcul coûts
-    claude/prompts.ts           # Templates prompts
+    claude/prompts.ts           # Templates prompts (défauts + BDD)
     claude/variables.ts         # Extraction variables
     openai/dalle.ts             # Wrapper DALL-E 3 + parser prompts
+    export/assemble.ts          # Assemblage article final
+    export/markdown.ts          # Export Markdown
+    export/docx.ts              # Export DOCX (lib docx)
+    export/wordpress.ts         # Export WordPress (REST API + HTML)
   config/steps.ts               # 16 étapes avec config détaillée
   hooks/useGenerate.ts          # Hook streaming SSE
 ```
