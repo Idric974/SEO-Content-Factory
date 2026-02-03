@@ -1,12 +1,28 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { prisma } from "@/lib/prisma/client";
 import { WORKFLOW_STEPS } from "@/config/steps";
+
+interface ProjectItem {
+  id: string;
+  title: string;
+  keyword: string;
+  status: string;
+  client: { name: string };
+  workflowSteps: { stepNumber: number }[];
+}
 
 const statusLabels: Record<string, string> = {
   draft: "Brouillon",
@@ -15,24 +31,28 @@ const statusLabels: Record<string, string> = {
   published: "Publié",
 };
 
-const statusVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const statusVariants: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   draft: "secondary",
   in_progress: "default",
   completed: "outline",
   published: "outline",
 };
 
-export default async function DashboardPage() {
-  const projects = await prisma.project.findMany({
-    include: {
-      client: true,
-      workflowSteps: {
-        where: { isValidated: true },
-        select: { stepNumber: true },
-      },
-    },
-    orderBy: { updatedAt: "desc" },
-  });
+export default function DashboardPage() {
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/projects")
+      .then((res) => res.json())
+      .then((data) => {
+        setProjects(data);
+        setLoading(false);
+      });
+  }, []);
 
   const totalSteps = WORKFLOW_STEPS.length;
 
@@ -44,7 +64,9 @@ export default async function DashboardPage() {
           <div>
             <h2 className="text-2xl font-bold">Projets</h2>
             <p className="text-muted-foreground">
-              {projects.length} projet{projects.length !== 1 ? "s" : ""}
+              {loading
+                ? "Chargement..."
+                : `${projects.length} projet${projects.length !== 1 ? "s" : ""}`}
             </p>
           </div>
           <Button asChild>
@@ -55,7 +77,7 @@ export default async function DashboardPage() {
           </Button>
         </div>
 
-        {projects.length === 0 ? (
+        {!loading && projects.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <p className="mb-4 text-muted-foreground">
