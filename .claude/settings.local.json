@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --use-npm --import-alias \"@/*\")",
+      "Bash(npx create-next-app:*)",
+      "Bash(npm install)",
+      "Bash(npx next build)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest init:*)",
+      "Bash(npx shadcn@latest add button card input label textarea select badge separator tabs dialog dropdown-menu sidebar tooltip progress sheet scroll-area avatar -y)",
+      "Bash(npx prisma:*)",
+      "Bash(psql:*)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -c \"CREATE DATABASE seo_content_factory;\")",
+      "Bash(PGPASSWORD=iydb4BE3H92A6w \"/c/Program Files/PostgreSQL/18/bin/psql.exe\":*)"
+    ]
+  }
+}
