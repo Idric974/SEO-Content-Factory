@@ -59,10 +59,14 @@ Application web locale pour produire des articles de blog SEO de A à Z, avec un
 - API generate utilise maxTokens/temperature du config par étape
 - Étapes 11 (DALL-E) et 15 (export) : placeholder "prochaine phase"
 
-### Phase 5 - Images (à faire)
-- Intégration DALL-E API
-- Upload images localement (public/uploads/)
-- Génération des alt texts
+### Phase 5 - Images ✅
+- Wrapper DALL-E 3 (src/lib/openai/dalle.ts) : generateImage + parseImagePrompts
+- API /api/images : POST génération unitaire, PUT parsing batch des prompts étape 10
+- Composant ImageGallery : grille d'images avec génération individuelle/batch
+- Composant StepImages : orchestration complète de l'étape 11
+- Stockage local dans public/uploads/images/{projectId}/
+- Logging des coûts DALL-E dans api_usage_logs
+- Étape 11 intégrée dans la page étape (plus de placeholder)
 
 ### Phase 6 - Export & Polish (à faire)
 - Export WordPress (REST API ou XML)
@@ -85,17 +89,19 @@ src/
     api/projects/[id]/route.ts  # Projet par ID
     api/projects/[id]/steps/[step]/route.ts  # Validation étapes
     api/generate/[step]/route.ts  # Génération Claude SSE
+    api/images/route.ts         # Génération images DALL-E
   components/
     layout/AppSidebar.tsx, Header.tsx
     workflow/StepTimeline.tsx, GenerateButton.tsx, OutputEditor.tsx,
              ValidationPanel.tsx, ChoiceSelector.tsx, StepContext.tsx,
-             MetaSelector.tsx
+             MetaSelector.tsx, ImageGallery.tsx, StepImages.tsx
   lib/
     prisma/client.ts            # Singleton Prisma (adapter-pg)
     claude/client.ts            # Wrapper Claude API
     claude/costs.ts             # Calcul coûts
     claude/prompts.ts           # Templates prompts
     claude/variables.ts         # Extraction variables
+    openai/dalle.ts             # Wrapper DALL-E 3 + parser prompts
   config/steps.ts               # 16 étapes avec config détaillée
   hooks/useGenerate.ts          # Hook streaming SSE
 ```

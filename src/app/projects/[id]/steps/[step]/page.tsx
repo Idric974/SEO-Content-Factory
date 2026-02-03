@@ -26,6 +26,7 @@ import {
   MetaSelector,
   parseMetaOutput,
 } from "@/components/workflow/MetaSelector";
+import { StepImages } from "@/components/workflow/StepImages";
 
 interface StepData {
   id: string;
@@ -295,8 +296,46 @@ export default function StepPage() {
     );
   }
 
-  // Étapes non encore implémentées (11 images, 15 export)
-  if (stepNumber === 11 || stepNumber === 15) {
+  // Étape 11 : Génération d'images DALL-E
+  if (stepNumber === 11) {
+    return (
+      <>
+        <Header title={stepDef?.name ?? "Illustrations"} />
+        <div className="p-6">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/projects/${projectId}/steps/10`}>
+                  <ArrowLeft className="mr-1 h-4 w-4" />
+                  Prompts illustrations
+                </Link>
+              </Button>
+            </div>
+            <Badge variant="outline">
+              Étape 11 / {WORKFLOW_STEPS.length - 1}
+            </Badge>
+          </div>
+
+          <StepImages projectId={projectId} />
+
+          {/* Navigation vers étape suivante si validée */}
+          {stepData?.isValidated && nextStep && (
+            <div className="mt-6 flex justify-end">
+              <Button asChild>
+                <Link href={`/projects/${projectId}/steps/${nextStep.number}`}>
+                  {nextStep.name}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  // Étape 15 : Export (non encore implémentée)
+  if (stepNumber === 15) {
     return (
       <>
         <Header title={stepDef?.name ?? `Étape ${stepNumber}`} />
