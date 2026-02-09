@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +43,7 @@ const statusVariants: Record<
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,6 +57,13 @@ export default function DashboardPage() {
   }, []);
 
   const totalSteps = WORKFLOW_STEPS.length;
+
+  async function handleDelete(projectId: string) {
+    const res = await fetch(`/api/projects/${projectId}`, { method: "DELETE" });
+    if (res.ok) {
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    }
+  }
 
   return (
     <>
@@ -100,36 +109,52 @@ export default function DashboardPage() {
               );
 
               return (
-                <Link key={project.id} href={`/projects/${project.id}`}>
-                  <Card className="transition-shadow hover:shadow-md">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <CardTitle className="text-base leading-tight">
-                          {project.title}
-                        </CardTitle>
+                <Card
+                  key={project.id}
+                  className="cursor-pointer transition-shadow hover:shadow-md"
+                  onClick={() => router.push(`/projects/${project.id}`)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex items-start justify-between">
+                      <CardTitle className="text-base leading-tight">
+                        {project.title}
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
                         <Badge variant={statusVariants[project.status]}>
                           {statusLabels[project.status] ?? project.status}
                         </Badge>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Supprimer le projet "${project.title}" ?`)) {
+                              handleDelete(project.id);
+                            }
+                          }}
+                          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          title="Supprimer le projet"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {project.client.name}
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            Mot-clé : {project.keyword}
-                          </span>
-                          <span className="font-medium">
-                            {validatedSteps}/{totalSteps}
-                          </span>
-                        </div>
-                        <Progress value={progressPercent} className="h-2" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {project.client.name}
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          Mot-clé : {project.keyword}
+                        </span>
+                        <span className="font-medium">
+                          {validatedSteps}/{totalSteps}
+                        </span>
                       </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                      <Progress value={progressPercent} className="h-2" />
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>

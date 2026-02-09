@@ -17,6 +17,7 @@ export interface PromptVariables {
   intents?: string;
   imagePrompts?: string;
   metaData?: string;
+  webResearch?: string;
   [key: string]: string | undefined;
 }
 
@@ -42,7 +43,7 @@ Intentions de recherche : {{intents}}
 
 {{persona}}
 
-Génère exactement 10 titres d'articles de blog SEO pour ce mot-clé.
+Génère exactement {{titleCount}} titres d'articles de blog SEO pour ce mot-clé.
 
 Règles :
 - Chaque titre doit contenir le mot-clé principal ou une variante proche
@@ -51,26 +52,34 @@ Règles :
 - Titres accrocheurs qui donnent envie de cliquer
 - Adaptés au persona cible
 
-Réponds uniquement avec la liste numérotée des 10 titres, sans explication.`,
+Réponds uniquement avec la liste numérotée des {{titleCount}} titres, sans explication.`,
   },
 
-  // Étape 2 : Recherche approfondie
+  // Étape 2 : Recherche approfondie (enrichie par recherche web Tavily)
   2: {
-    system: `Tu es un chercheur expert. Tu rédiges des synthèses exhaustives et factuelles sur n'importe quel sujet, en structurant l'information de manière claire.`,
+    system: `Tu es un chercheur expert. Tu rédiges des synthèses exhaustives et factuelles en t'appuyant sur des sources web réelles. Tu cites tes sources avec les URLs fournies. Tu ne fabriques jamais de données.`,
     user: `Titre de l'article : "{{title}}"
 Mot-clé : "{{keyword}}"
 
-Rédige une recherche approfondie / wiki sur ce sujet. Couvre :
+--- SOURCES WEB (recherche automatique) ---
+{{webResearch}}
+--- FIN DES SOURCES WEB ---
+
+En t'appuyant prioritairement sur les sources web ci-dessus, rédige une recherche approfondie / wiki sur ce sujet. Couvre :
 1. Définition et contexte
 2. Historique et évolution
 3. Concepts clés et terminologie
-4. Statistiques et données récentes
+4. Statistiques et données récentes (cite les chiffres trouvés dans les sources)
 5. Tendances actuelles
 6. Experts et sources de référence
 7. Questions fréquentes du public
 8. Controverses ou débats
 
-La synthèse doit être factuelle, sourcée quand possible, et servir de base documentaire pour rédiger un article de blog complet.`,
+Règles :
+- Cite les sources avec leurs URLs entre parenthèses quand tu utilises une information
+- Privilégie les données des sources web plutôt que tes connaissances internes
+- Ajoute une section "Sources" à la fin avec la liste des URLs utilisées
+- La synthèse doit servir de base documentaire pour rédiger un article de blog complet`,
   },
 
   // Étape 3 : Questions persona

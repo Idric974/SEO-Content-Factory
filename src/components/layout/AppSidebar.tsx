@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  FolderOpen,
   Users,
   Settings,
   DollarSign,
@@ -26,7 +25,6 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Projets", href: "/projects", icon: FolderOpen },
   { title: "Clients", href: "/clients", icon: Users },
 ];
 

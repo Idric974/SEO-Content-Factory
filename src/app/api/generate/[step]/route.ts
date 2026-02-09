@@ -5,6 +5,7 @@ import { calculateCost } from "@/lib/claude/costs";
 import { buildPrompts } from "@/lib/claude/prompts";
 import { extractVariables } from "@/lib/claude/variables";
 import { getStepByNumber } from "@/config/steps";
+import { tavilySearch, formatSearchResults } from "@/lib/tavily/client";
 
 type Params = { params: Promise<{ step: string }> };
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   const body = await request.json();
-  const { projectId } = body;
+  const { projectId, ...extras } = body;
 
   if (!projectId) {
     return new Response(
@@ -49,6 +50,13 @@ export async function POST(request: NextRequest, { params }: Params) {
   // Extraire les variables et construire les prompts
   const variables = extractVariables(project);
 
+  // Injecter les paramètres extras envoyés par le client
+  for (const [key, value] of Object.entries(extras)) {
+    if (typeof value === "string") {
+      variables[key] = value;
+    }
+  }
+
   // Pour l'étape 1, le titre choisi est le titre du projet
   // Pour les étapes suivantes, on utilise le titre sélectionné à l'étape 1
   const step1 = project.workflowSteps.find((s) => s.stepNumber === 1);
@@ -56,6 +64,55 @@ export async function POST(request: NextRequest, { params }: Params) {
     const data = step1.outputData as { selectedTitle?: string };
     if (data.selectedTitle) {
       variables.title = data.selectedTitle;
+    }
+  }
+
+  // Étape 2 : recherche web Tavily avant génération
+  let searchStatus: { success: boolean; resultCount: number; error?: string } | null = null;
+
+  if (stepNumber === 2 && process.env.TAVILY_API_KEY) {
+    try {
+      const keyword = variables.keyword ?? project.keyword;
+      const title = variables.title ?? project.title;
+
+      // Lancer 2 recherches en parallèle pour plus de couverture
+      const [mainSearch, complementSearch] = await Promise.all([
+        tavilySearch({
+          query: `${keyword} guide complet`,
+          maxResults: 5,
+          searchDepth: "advanced",
+        }),
+        tavilySearch({
+          query: `${title}`,
+          maxResults: 3,
+          searchDepth: "basic",
+        }),
+      ]);
+
+      // Fusionner les résultats (dédupliquer par URL)
+      const seenUrls = new Set<string>();
+      const allResults = [...mainSearch.results, ...complementSearch.results].filter(
+        (r) => {
+          if (seenUrls.has(r.url)) return false;
+          seenUrls.add(r.url);
+          return true;
+        }
+      );
+
+      const mergedResponse = {
+        query: keyword,
+        answer: mainSearch.answer,
+        results: allResults,
+      };
+
+      variables.webResearch = formatSearchResults(mergedResponse);
+      searchStatus = { success: true, resultCount: allResults.length };
+    } catch (err) {
+      // En cas d'erreur Tavily, on continue sans recherche web
+      console.error("Tavily search failed:", err);
+      const errorMsg = err instanceof Error ? err.message : "Erreur inconnue";
+      variables.webResearch = "(Recherche web indisponible)";
+      searchStatus = { success: false, resultCount: 0, error: errorMsg };
     }
   }
 
@@ -82,6 +139,15 @@ export async function POST(request: NextRequest, { params }: Params) {
   const readable = new ReadableStream({
     async start(controller) {
       try {
+        // Envoyer le statut de la recherche web si applicable
+        if (searchStatus) {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "search", ...searchStatus })}\n\n`
+            )
+          );
+        }
+
         const stream = await generateStream({
           systemPrompt,
           userPrompt,

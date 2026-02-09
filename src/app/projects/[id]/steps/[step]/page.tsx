@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Globe, AlertTriangle } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,8 +67,9 @@ export default function StepPage() {
   const [selectedTitleIndex, setSelectedTitleIndex] = useState<number | null>(null);
   const [selectedDescIndex, setSelectedDescIndex] = useState<number | null>(null);
   const [validating, setValidating] = useState(false);
+  const [titleCount, setTitleCount] = useState("10");
 
-  const { isGenerating, output, error, stats, generate, cancel, setOutput } =
+  const { isGenerating, output, error, stats, searchStatus, generate, cancel, setOutput } =
     useGenerate();
 
   const fetchData = useCallback(async () => {
@@ -110,7 +111,11 @@ export default function StepPage() {
   }, [fetchData]);
 
   function handleGenerate() {
-    generate(projectId, stepNumber);
+    const extras: Record<string, string> = {};
+    if (stepNumber === 1) {
+      extras.titleCount = titleCount;
+    }
+    generate(projectId, stepNumber, extras);
   }
 
   async function handleValidate() {
@@ -421,12 +426,33 @@ export default function StepPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle>{stepDef?.name}</CardTitle>
-                  <GenerateButton
-                    isGenerating={isGenerating}
-                    hasOutput={output.length > 0}
-                    onGenerate={handleGenerate}
-                    onCancel={cancel}
-                  />
+                  <div className="flex items-center gap-3">
+                    {stepNumber === 1 && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm text-muted-foreground whitespace-nowrap">
+                          Nb titres
+                        </label>
+                        <select
+                          value={titleCount}
+                          onChange={(e) => setTitleCount(e.target.value)}
+                          disabled={isGenerating}
+                          className="h-9 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        >
+                          {[5, 10, 15, 20].map((n) => (
+                            <option key={n} value={String(n)}>
+                              {n}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <GenerateButton
+                      isGenerating={isGenerating}
+                      hasOutput={output.length > 0}
+                      onGenerate={handleGenerate}
+                      onCancel={cancel}
+                    />
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {stepDef?.description}
@@ -438,6 +464,36 @@ export default function StepPage() {
                 </CardContent>
               )}
             </Card>
+
+            {/* Statut recherche web (étape 2) */}
+            {searchStatus && (
+              <Card className={searchStatus.success ? "border-green-300 dark:border-green-800" : "border-amber-300 dark:border-amber-800"}>
+                <CardContent className="flex items-center gap-3 pt-6">
+                  {searchStatus.success ? (
+                    <>
+                      <Globe className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+                      <p className="text-sm text-green-700 dark:text-green-300">
+                        Recherche web terminée — {searchStatus.resultCount} sources trouvées et injectées dans le prompt.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                          Recherche web échouée — génération basée sur les connaissances de Claude uniquement.
+                        </p>
+                        {searchStatus.error && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            {searchStatus.error}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Erreur */}
             {error && (

@@ -2,10 +2,17 @@
 
 import { useState, useCallback, useRef } from "react";
 
+export interface SearchStatus {
+  success: boolean;
+  resultCount: number;
+  error?: string;
+}
+
 interface GenerateState {
   isGenerating: boolean;
   output: string;
   error: string | null;
+  searchStatus: SearchStatus | null;
   stats: {
     inputTokens: number;
     outputTokens: number;
@@ -22,13 +29,14 @@ export function useGenerate() {
     isGenerating: false,
     output: "",
     error: null,
+    searchStatus: null,
     stats: null,
   });
 
   const abortRef = useRef<AbortController | null>(null);
 
   const generate = useCallback(
-    async (projectId: string, stepNumber: number) => {
+    async (projectId: string, stepNumber: number, extras?: Record<string, string>) => {
       // Annuler une génération en cours
       if (abortRef.current) {
         abortRef.current.abort();
@@ -41,6 +49,7 @@ export function useGenerate() {
         isGenerating: true,
         output: "",
         error: null,
+        searchStatus: null,
         stats: null,
       });
 
@@ -48,7 +57,7 @@ export function useGenerate() {
         const response = await fetch(`/api/generate/${stepNumber}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId }),
+          body: JSON.stringify({ projectId, ...extras }),
           signal: controller.signal,
         });
 
@@ -78,7 +87,16 @@ export function useGenerate() {
             try {
               const event = JSON.parse(json);
 
-              if (event.type === "text") {
+              if (event.type === "search") {
+                setState((prev) => ({
+                  ...prev,
+                  searchStatus: {
+                    success: event.success,
+                    resultCount: event.resultCount,
+                    error: event.error,
+                  },
+                }));
+              } else if (event.type === "text") {
                 setState((prev) => ({
                   ...prev,
                   output: prev.output + event.text,
