@@ -11,7 +11,10 @@
       "Bash(npx prisma:*)",
       "Bash(psql:*)",
       "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -c \"CREATE DATABASE seo_content_factory;\")",
-      "Bash(PGPASSWORD=iydb4BE3H92A6w \"/c/Program Files/PostgreSQL/18/bin/psql.exe\":*)"
+      "Bash(PGPASSWORD=iydb4BE3H92A6w \"/c/Program Files/PostgreSQL/18/bin/psql.exe\":*)",
+      "WebFetch(domain:serpapi.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

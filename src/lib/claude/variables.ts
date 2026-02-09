@@ -1,9 +1,14 @@
 import type { PromptVariables } from "./prompts";
+import type { SERPAnalysis } from "@/lib/serpapi/client";
+import { formatSERPForPrompt } from "@/lib/serpapi/client";
 
 interface ProjectData {
   keyword: string;
   title: string;
   searchIntents: string[];
+  businessObjective: string | null;
+  serpAnalysis: unknown;
+  editorialFormat: string | null;
   client: {
     persona: unknown;
     brandGuidelines: unknown;
@@ -54,6 +59,64 @@ export function extractVariables(project: ProjectData): PromptVariables {
     vars.brand = parts.length > 0 ? parts.join("\n") : "";
   } else {
     vars.brand = "";
+  }
+
+  // Objectif business
+  if (project.businessObjective) {
+    const labels: Record<string, string> = {
+      explorer: "Explorateur — Le lecteur découvre le sujet",
+      evaluator: "Évaluateur — Le lecteur compare des options",
+      convinced: "Convaincu en attente — Le lecteur est prêt mais hésite",
+      decision_maker: "Décisionnaire — Le lecteur veut agir maintenant",
+    };
+    vars.businessObjective = labels[project.businessObjective] ?? project.businessObjective;
+  }
+
+  // Format éditorial recommandé
+  if (project.editorialFormat) {
+    const formatLabels: Record<string, string> = {
+      pas: "PAS (Problème-Agitation-Solution)",
+      aida: "AIDA (Attention-Intérêt-Désir-Action)",
+      mece: "MECE (Mutuellement Exclusif, Collectivement Exhaustif)",
+      inverted_pyramid: "Pyramide inversée (informationnel)",
+    };
+    vars.editorialFormat = formatLabels[project.editorialFormat] ?? project.editorialFormat;
+  }
+
+  // Données SERP
+  if (project.serpAnalysis && typeof project.serpAnalysis === "object") {
+    const serp = project.serpAnalysis as SERPAnalysis;
+
+    // PAA formatées
+    if (serp.peopleAlsoAsk?.length > 0) {
+      vars.serpPAA = serp.peopleAlsoAsk
+        .map((p) => `- ${p.question}`)
+        .join("\n");
+    }
+
+    // Features SERP détectées
+    if (serp.serpFeatures?.length > 0) {
+      vars.serpFeatures = serp.serpFeatures.join(", ");
+    }
+
+    // Top 5 concurrents
+    if (serp.organicResults?.length > 0) {
+      vars.serpCompetitors = serp.organicResults
+        .slice(0, 5)
+        .map(
+          (r) =>
+            `${r.position}. ${r.title}\n   ${r.snippet}\n   Source : ${r.link}`
+        )
+        .join("\n\n");
+    }
+
+    // Recherches associées
+    if (serp.relatedSearches?.length > 0) {
+      vars.relatedSearches = serp.relatedSearches.join(", ");
+    }
+
+    // Résumé SERP complet pour injection
+    vars.serpSummary = formatSERPForPrompt(serp);
   }
 
   // Résultats des étapes précédentes validées

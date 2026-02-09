@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Globe, AlertTriangle } from "lucide-react";
+import { ArrowRight, Globe, AlertTriangle, Search, Scale, CheckCircle, Target } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { WORKFLOW_STEPS } from "@/config/steps";
 import { useGenerate } from "@/hooks/useGenerate";
+import { useProjectWorkflow } from "@/contexts/ProjectWorkflowContext";
 import {
   GenerateButton,
   GeneratingIndicator,
@@ -28,6 +29,9 @@ import {
 } from "@/components/workflow/MetaSelector";
 import { StepImages } from "@/components/workflow/StepImages";
 import { StepExport } from "@/components/workflow/StepExport";
+import { SerpAnalysisPanel } from "@/components/strategy/SerpAnalysisPanel";
+import { FormatRecommendation } from "@/components/strategy/FormatRecommendation";
+import type { SERPAnalysis } from "@/lib/serpapi/client";
 
 interface StepData {
   id: string;
@@ -40,28 +44,18 @@ interface StepData {
   costUsd: string | null;
 }
 
-interface ProjectInfo {
-  id: string;
-  title: string;
-  keyword: string;
-  searchIntents: string[];
-  currentStep: number;
-  client: { name: string; persona: unknown };
-  workflowSteps: StepData[];
-}
-
 export default function StepPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
   const stepNumber = parseInt(params.step as string, 10);
 
+  const { project: projectInfo, refreshProject } = useProjectWorkflow();
+
   const stepDef = WORKFLOW_STEPS.find((s) => s.number === stepNumber);
   const nextStep = WORKFLOW_STEPS.find((s) => s.number === stepNumber + 1);
-  const prevStep = WORKFLOW_STEPS.find((s) => s.number === stepNumber - 1);
 
   const [stepData, setStepData] = useState<StepData | null>(null);
-  const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedTitleIndex, setSelectedTitleIndex] = useState<number | null>(null);
@@ -72,14 +66,11 @@ export default function StepPage() {
   const { isGenerating, output, error, stats, searchStatus, generate, cancel, setOutput } =
     useGenerate();
 
-  const fetchData = useCallback(async () => {
-    const [stepRes, projectRes] = await Promise.all([
-      fetch(`/api/projects/${projectId}/steps/${stepNumber}`),
-      fetch(`/api/projects/${projectId}`),
-    ]);
+  const fetchStepData = useCallback(async () => {
+    const res = await fetch(`/api/projects/${projectId}/steps/${stepNumber}`);
 
-    if (stepRes.ok) {
-      const data = await stepRes.json();
+    if (res.ok) {
+      const data = await res.json();
       setStepData(data);
       if (data.outputText) {
         setOutput(data.outputText);
@@ -95,10 +86,6 @@ export default function StepPage() {
       }
     }
 
-    if (projectRes.ok) {
-      setProjectInfo(await projectRes.json());
-    }
-
     setLoading(false);
   }, [projectId, stepNumber, setOutput]);
 
@@ -107,8 +94,8 @@ export default function StepPage() {
     setSelectedIndex(null);
     setSelectedTitleIndex(null);
     setSelectedDescIndex(null);
-    fetchData();
-  }, [fetchData]);
+    fetchStepData();
+  }, [fetchStepData]);
 
   function handleGenerate() {
     const extras: Record<string, string> = {};
@@ -154,6 +141,9 @@ export default function StepPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ outputText: output, outputData, isValidated: true }),
     });
+
+    // Rafraîchir le contexte pour mettre à jour la timeline
+    await refreshProject();
 
     setValidating(false);
 
@@ -202,104 +192,15 @@ export default function StepPage() {
     );
   }
 
-  // Étape 0 : Configuration
+  // Étape 0 : Stratégie & Analyse SERP
   if (stepNumber === 0) {
-    return (
-      <>
-        <Header title="Configuration" />
-        <div className="p-6">
-          <div className="mb-6">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={`/projects/${projectId}`}>
-                <ArrowLeft className="mr-1 h-4 w-4" />
-                Retour au projet
-              </Link>
-            </Button>
-          </div>
-          <Card className="mx-auto max-w-3xl">
-            <CardHeader>
-              <CardTitle>Configuration du projet</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {projectInfo && (
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Client</span>
-                    <span className="font-medium">{projectInfo.client.name}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Mot-clé principal</span>
-                    <span className="font-medium">{projectInfo.keyword}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Titre initial</span>
-                    <span className="font-medium">{projectInfo.title}</span>
-                  </div>
-                  {projectInfo.searchIntents.length > 0 && (
-                    <>
-                      <Separator />
-                      <div>
-                        <span className="text-muted-foreground">
-                          Intentions de recherche
-                        </span>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {projectInfo.searchIntents.map((intent, i) => (
-                            <Badge key={i} variant="outline">
-                              {intent}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  <Separator />
-                  <div>
-                    <span className="text-muted-foreground">Persona</span>
-                    <p className="mt-1 text-sm">
-                      {projectInfo.client.persona
-                        ? "Configuré"
-                        : "Non défini — configurez-le dans la fiche client"}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-4">
-                {!stepData?.isValidated ? (
-                  <Button
-                    className="w-full"
-                    onClick={async () => {
-                      await fetch(`/api/projects/${projectId}/steps/0`, {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          outputText: "Configuration validée",
-                          outputData: { configured: true },
-                          isValidated: true,
-                        }),
-                      });
-                      router.push(`/projects/${projectId}/steps/1`);
-                    }}
-                  >
-                    Valider la configuration et commencer
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button asChild className="w-full">
-                    <Link href={`/projects/${projectId}/steps/1`}>
-                      Aller à l&apos;étape 1
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </>
-    );
+    return <Step0Strategy
+      projectInfo={projectInfo}
+      stepData={stepData}
+      projectId={projectId}
+      refreshProject={refreshProject}
+      router={router}
+    />;
   }
 
   // Étape 11 : Génération d'images DALL-E
@@ -308,33 +209,7 @@ export default function StepPage() {
       <>
         <Header title={stepDef?.name ?? "Illustrations"} />
         <div className="p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href={`/projects/${projectId}/steps/10`}>
-                  <ArrowLeft className="mr-1 h-4 w-4" />
-                  Prompts illustrations
-                </Link>
-              </Button>
-            </div>
-            <Badge variant="outline">
-              Étape 11 / {WORKFLOW_STEPS.length - 1}
-            </Badge>
-          </div>
-
           <StepImages projectId={projectId} />
-
-          {/* Navigation vers étape suivante si validée */}
-          {stepData?.isValidated && nextStep && (
-            <div className="mt-6 flex justify-end">
-              <Button asChild>
-                <Link href={`/projects/${projectId}/steps/${nextStep.number}`}>
-                  {nextStep.name}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
-          )}
         </div>
       </>
     );
@@ -346,20 +221,6 @@ export default function StepPage() {
       <>
         <Header title={stepDef?.name ?? "Export"} />
         <div className="p-6">
-          <div className="mb-6 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href={`/projects/${projectId}/steps/14`}>
-                  <ArrowLeft className="mr-1 h-4 w-4" />
-                  Données structurées
-                </Link>
-              </Button>
-            </div>
-            <Badge variant="outline">
-              Étape 15 / {WORKFLOW_STEPS.length - 1}
-            </Badge>
-          </div>
-
           <StepExport projectId={projectId} />
         </div>
       </>
@@ -391,27 +252,6 @@ export default function StepPage() {
     <>
       <Header title={stepDef?.name ?? `Étape ${stepNumber}`} />
       <div className="p-6">
-        {/* Navigation */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" asChild>
-              <Link
-                href={
-                  prevStep
-                    ? `/projects/${projectId}/steps/${prevStep.number}`
-                    : `/projects/${projectId}`
-                }
-              >
-                <ArrowLeft className="mr-1 h-4 w-4" />
-                {prevStep ? prevStep.name : "Projet"}
-              </Link>
-            </Button>
-          </div>
-          <Badge variant="outline">
-            Étape {stepNumber} / {WORKFLOW_STEPS.length - 1}
-          </Badge>
-        </div>
-
         <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
           {/* Zone principale */}
           <div className="space-y-6">
@@ -576,6 +416,168 @@ export default function StepPage() {
               }
             />
           </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// --- Composant Step 0 : Stratégie & Analyse SERP ---
+
+const OBJECTIVE_LABELS: Record<string, { label: string; icon: React.ElementType }> = {
+  explorer: { label: "Explorateur", icon: Search },
+  evaluator: { label: "Évaluateur", icon: Scale },
+  convinced: { label: "Convaincu en attente", icon: CheckCircle },
+  decision_maker: { label: "Décisionnaire", icon: Target },
+};
+
+function Step0Strategy({
+  projectInfo,
+  stepData,
+  projectId,
+  refreshProject,
+  router,
+}: {
+  projectInfo: import("@/contexts/ProjectWorkflowContext").ProjectData | null;
+  stepData: StepData | null;
+  projectId: string;
+  refreshProject: () => Promise<void>;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const [serpAnalysis, setSerpAnalysis] = useState<SERPAnalysis | null>(
+    (projectInfo?.serpAnalysis as SERPAnalysis | null) ?? null
+  );
+  const [selectedFormat, setSelectedFormat] = useState<string | null>(
+    projectInfo?.editorialFormat ?? null
+  );
+
+  function handleAnalysisComplete(analysis: SERPAnalysis) {
+    setSerpAnalysis(analysis);
+  }
+
+  async function handleValidateStrategy() {
+    // Sauvegarder le format éditorial si sélectionné
+    if (selectedFormat) {
+      await fetch(`/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ editorialFormat: selectedFormat }),
+      });
+    }
+
+    // Valider l'étape 0
+    await fetch(`/api/projects/${projectId}/steps/0`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        outputText: `Stratégie validée. Format: ${selectedFormat ?? "non défini"}. SERP analysée: ${serpAnalysis ? "oui" : "non"}.`,
+        outputData: {
+          configured: true,
+          serpAnalyzed: !!serpAnalysis,
+          editorialFormat: selectedFormat,
+        },
+        isValidated: true,
+      }),
+    });
+    await refreshProject();
+    router.push(`/projects/${projectId}/steps/1`);
+  }
+
+  const objectiveKey = projectInfo?.businessObjective;
+  const objectiveInfo = objectiveKey ? OBJECTIVE_LABELS[objectiveKey] : null;
+
+  return (
+    <>
+      <Header title="Stratégie & Analyse SERP" />
+      <div className="p-6 space-y-6">
+        {/* Section 1 : Récapitulatif */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Récapitulatif du projet</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {projectInfo && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <span className="text-sm text-muted-foreground">Client</span>
+                  <p className="font-medium">{projectInfo.client.name}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Mot-clé principal</span>
+                  <p className="font-medium">{projectInfo.keyword}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Titre initial</span>
+                  <p className="font-medium">{projectInfo.title}</p>
+                </div>
+                <div>
+                  <span className="text-sm text-muted-foreground">Objectif business</span>
+                  {objectiveInfo ? (
+                    <div className="flex items-center gap-2">
+                      <objectiveInfo.icon className="h-4 w-4 text-muted-foreground" />
+                      <p className="font-medium">{objectiveInfo.label}</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Non défini</p>
+                  )}
+                </div>
+                {projectInfo.searchIntents.length > 0 && (
+                  <div className="sm:col-span-2">
+                    <span className="text-sm text-muted-foreground">Intentions de recherche</span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {projectInfo.searchIntents.map((intent, i) => (
+                        <Badge key={i} variant="outline">{intent}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="sm:col-span-2">
+                  <span className="text-sm text-muted-foreground">Persona</span>
+                  <p className="text-sm">
+                    {projectInfo.client.persona ? "Configuré" : "Non défini — configurez-le dans la fiche client"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Section 2 : Analyse SERP */}
+        {projectInfo && (
+          <SerpAnalysisPanel
+            keyword={projectInfo.keyword}
+            projectId={projectId}
+            initialAnalysis={serpAnalysis}
+            onAnalysisComplete={handleAnalysisComplete}
+          />
+        )}
+
+        {/* Section 3 : Recommandation format éditorial */}
+        {serpAnalysis && projectInfo && (
+          <FormatRecommendation
+            serpAnalysis={serpAnalysis}
+            businessObjective={projectInfo.businessObjective}
+            selectedFormat={selectedFormat}
+            onSelectFormat={setSelectedFormat}
+            projectId={projectId}
+          />
+        )}
+
+        {/* Bouton validation */}
+        <div className="pt-2">
+          {!stepData?.isValidated ? (
+            <Button className="w-full" onClick={handleValidateStrategy}>
+              Valider la stratégie et commencer
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button asChild className="w-full">
+              <Link href={`/projects/${projectId}/steps/1`}>
+                Aller à l&apos;étape 1
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </>

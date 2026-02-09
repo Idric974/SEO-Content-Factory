@@ -27,10 +27,13 @@ model Project {
   id            String   @id @default(uuid()) @db.Uuid
   clientId      String   @map("client_id") @db.Uuid
   title         String
-  keyword       String   // Mot-clé principal
-  searchIntents String[] @map("search_intents") // Intentions de recherche
-  status        String   @default("draft") // draft, in_progress, completed, published
-  currentStep   Int      @default(0) @map("current_step")
+  keyword           String   // Mot-clé principal
+  searchIntents     String[] @map("search_intents") // Intentions de recherche
+  businessObjective String?  @map("business_objective") // explorer, evaluator, convinced, decision_maker
+  serpAnalysis       Json?    @map("serp_analysis")      // Résultats analyse SERP (SerpAPI)
+  editorialFormat    String?  @map("editorial_format")   // pas, aida, mece, inverted_pyramid
+  status            String   @default("draft") // draft, in_progress, completed, published
+  currentStep       Int      @default(0) @map("current_step")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

@@ -18,6 +18,13 @@ export interface PromptVariables {
   imagePrompts?: string;
   metaData?: string;
   webResearch?: string;
+  businessObjective?: string;
+  editorialFormat?: string;
+  serpPAA?: string;
+  serpFeatures?: string;
+  serpCompetitors?: string;
+  relatedSearches?: string;
+  serpSummary?: string;
   [key: string]: string | undefined;
 }
 
@@ -65,6 +72,16 @@ Mot-clé : "{{keyword}}"
 {{webResearch}}
 --- FIN DES SOURCES WEB ---
 
+--- ANALYSE SERP ---
+Top concurrents Google :
+{{serpCompetitors}}
+
+Questions fréquentes (People Also Ask) :
+{{serpPAA}}
+
+Recherches associées : {{relatedSearches}}
+--- FIN ANALYSE SERP ---
+
 En t'appuyant prioritairement sur les sources web ci-dessus, rédige une recherche approfondie / wiki sur ce sujet. Couvre :
 1. Définition et contexte
 2. Historique et évolution
@@ -72,12 +89,14 @@ En t'appuyant prioritairement sur les sources web ci-dessus, rédige une recherc
 4. Statistiques et données récentes (cite les chiffres trouvés dans les sources)
 5. Tendances actuelles
 6. Experts et sources de référence
-7. Questions fréquentes du public
+7. Questions fréquentes du public (intègre les PAA Google ci-dessus)
 8. Controverses ou débats
+9. Ce que couvrent les concurrents SERP (identifie les angles manquants)
 
 Règles :
 - Cite les sources avec leurs URLs entre parenthèses quand tu utilises une information
 - Privilégie les données des sources web plutôt que tes connaissances internes
+- Couvre ce que les concurrents SERP abordent ET identifie des angles différenciants
 - Ajoute une section "Sources" à la fin avec la liste des URLs utilisées
 - La synthèse doit servir de base documentaire pour rédiger un article de blog complet`,
   },
@@ -91,7 +110,13 @@ Mot-clé : "{{keyword}}"
 Persona cible :
 {{persona}}
 
+--- Questions réelles Google (People Also Ask) ---
+{{serpPAA}}
+--- Fin PAA ---
+
 Génère une liste exhaustive de questions que ce persona se poserait sur le sujet "{{keyword}}".
+
+Intègre et enrichis les questions PAA Google ci-dessus, puis ajoute tes propres questions.
 
 Catégorise les questions par type :
 - Questions de base (découverte)
@@ -100,7 +125,7 @@ Catégorise les questions par type :
 - Questions d'achat/décision
 - Questions avancées (pour les connaisseurs)
 
-Génère au moins 20 questions pertinentes.`,
+Génère au moins 20 questions pertinentes. Marque d'un [PAA] les questions issues de Google.`,
   },
 
   // Étape 4 : Intentions vs Questions
@@ -113,13 +138,18 @@ Intentions de recherche : {{intents}}
 Questions du persona :
 {{questions}}
 
+Features SERP détectées : {{serpFeatures}}
+Recherches associées : {{relatedSearches}}
+
 Croise les intentions de recherche SERP avec les questions du persona.
 Pour chaque question :
 1. Associe-la à une ou plusieurs intentions de recherche
 2. Évalue sa priorité SEO (haute, moyenne, basse)
 3. Suggère des mots-clés secondaires associés
+4. Indique si elle peut cibler une feature SERP (featured snippet, PAA, etc.)
 
-Enrichis la liste avec des questions manquantes identifiées via les intentions SERP.
+Enrichis la liste avec des questions manquantes identifiées via les intentions SERP et les recherches associées.
+Priorise les questions qui peuvent déclencher des features SERP (featured snippets, PAA).
 Ordonne les questions par priorité SEO décroissante.`,
   },
 
@@ -128,6 +158,7 @@ Ordonne les questions par priorité SEO décroissante.`,
     system: `Tu es un architecte de contenu expert. Tu crées des plans d'articles structurés selon le principe MECE (Mutuellement Exclusif, Collectivement Exhaustif).`,
     user: `Titre : "{{title}}"
 Mot-clé : "{{keyword}}"
+Framework éditorial : {{editorialFormat}}
 
 Questions enrichies :
 {{enrichedQuestions}}
@@ -135,18 +166,26 @@ Questions enrichies :
 Recherche documentaire :
 {{research}}
 
-Crée un plan MECE détaillé pour cet article avec :
+--- Questions Google (PAA) à intégrer ---
+{{serpPAA}}
+--- Fin PAA ---
+
+Crée un plan détaillé pour cet article en suivant le framework "{{editorialFormat}}".
+
+Structure :
 - H1 (titre principal)
 - H2 (sections principales, 5-8)
 - H3 (sous-sections, 2-4 par H2)
 - H4 si nécessaire (points spécifiques)
 
 Règles :
+- Suivre la logique du framework éditorial choisi pour ordonner les sections
 - Chaque section doit répondre à une ou plusieurs questions du persona
 - Pas de redondance entre les sections (Mutuellement Exclusif)
 - L'ensemble couvre tout le sujet (Collectivement Exhaustif)
 - Intègre naturellement le mot-clé et ses variantes
-- Inclus une section FAQ en fin d'article
+- Intègre les questions PAA Google comme sous-sections ou dans la FAQ
+- Inclus une section FAQ en fin d'article avec les PAA restantes
 
 Présente le plan avec la hiérarchie Hn claire.`,
   },

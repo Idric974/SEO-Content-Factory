@@ -16,12 +16,15 @@ interface StepTimelineProps {
   projectId: string;
   currentStep: number;
   steps: WorkflowStepData[];
+  /** Numéro de l'étape actuellement consultée (highlight visuel) */
+  activeStepNumber?: number;
 }
 
 export function StepTimeline({
   projectId,
   currentStep,
   steps,
+  activeStepNumber,
 }: StepTimelineProps) {
   return (
     <div className="space-y-1">
@@ -30,6 +33,7 @@ export function StepTimeline({
         const isValidated = stepData?.isValidated ?? false;
         const hasOutput = stepData?.outputData != null;
         const isCurrent = stepDef.number === currentStep;
+        const isActive = stepDef.number === activeStepNumber;
 
         let status: "validated" | "current" | "available" | "locked";
         if (isValidated) {
@@ -58,7 +62,9 @@ export function StepTimeline({
                 "bg-primary/10 font-medium text-primary",
               status === "available" && "hover:bg-accent",
               status === "locked" &&
-                "cursor-not-allowed opacity-40"
+                "cursor-not-allowed opacity-40",
+              isActive &&
+                "ring-2 ring-primary/50 bg-primary/5"
             )}
           >
             <div className="flex h-6 w-6 shrink-0 items-center justify-center">

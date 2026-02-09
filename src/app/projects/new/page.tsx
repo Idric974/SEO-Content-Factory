@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Search, Scale, CheckCircle, Target } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,12 +23,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 interface Client {
   id: string;
   name: string;
   slug: string;
 }
+
+const BUSINESS_OBJECTIVES = [
+  {
+    value: "explorer",
+    label: "Explorateur",
+    description: "Le lecteur découvre le sujet. CTA informatif.",
+    icon: Search,
+  },
+  {
+    value: "evaluator",
+    label: "Évaluateur",
+    description: "Le lecteur compare des options. CTA comparatif.",
+    icon: Scale,
+  },
+  {
+    value: "convinced",
+    label: "Convaincu en attente",
+    description: "Le lecteur est prêt mais hésite. CTA réassurance.",
+    icon: CheckCircle,
+  },
+  {
+    value: "decision_maker",
+    label: "Décisionnaire",
+    description: "Le lecteur veut agir maintenant. CTA action directe.",
+    icon: Target,
+  },
+] as const;
 
 export default function NewProjectPage() {
   const router = useRouter();
@@ -40,6 +68,7 @@ export default function NewProjectPage() {
   const [title, setTitle] = useState("");
   const [keyword, setKeyword] = useState("");
   const [searchIntents, setSearchIntents] = useState("");
+  const [businessObjective, setBusinessObjective] = useState("");
 
   useEffect(() => {
     fetch("/api/clients")
@@ -67,6 +96,7 @@ export default function NewProjectPage() {
         title: title.trim(),
         keyword: keyword.trim(),
         searchIntents: intents,
+        businessObjective: businessObjective || undefined,
       }),
     });
 
@@ -148,6 +178,37 @@ export default function NewProjectPage() {
               <p className="text-xs text-muted-foreground">
                 Le mot-clé SEO principal autour duquel l&apos;article sera
                 optimisé
+              </p>
+            </div>
+
+            {/* Sélecteur d'objectif business */}
+            <div className="space-y-3">
+              <Label>Objectif business du contenu</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {BUSINESS_OBJECTIVES.map((obj) => (
+                  <button
+                    key={obj.value}
+                    type="button"
+                    onClick={() => setBusinessObjective(obj.value)}
+                    className={cn(
+                      "flex flex-col items-start gap-2 rounded-lg border p-3 text-left transition-colors hover:bg-accent",
+                      businessObjective === obj.value &&
+                        "border-primary bg-primary/5 ring-2 ring-primary/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <obj.icon className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{obj.label}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {obj.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Influence les suggestions de Call to Action et le ton de
+                l&apos;article
               </p>
             </div>
 

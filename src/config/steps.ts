@@ -18,15 +18,15 @@ export interface StepDefinition {
 export const WORKFLOW_STEPS: StepDefinition[] = [
   {
     number: 0,
-    name: "Configuration",
-    slug: "configuration",
-    description: "Définir le mot-clé, le client et les intentions de recherche",
+    name: "Stratégie & Analyse SERP",
+    slug: "strategy",
+    description: "Analyser la SERP, définir l'objectif et le format éditorial",
     requiresValidation: true,
     validationType: "approve",
     maxTokens: 0,
     temperature: 0,
     dependsOn: [],
-    userInstructions: "Vérifiez les paramètres du projet puis validez pour commencer.",
+    userInstructions: "Lancez l'analyse SERP pour votre mot-clé. Vérifiez les recommandations puis validez pour commencer.",
   },
   {
     number: 1,

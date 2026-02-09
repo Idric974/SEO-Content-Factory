@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 // POST /api/projects - Crée un nouveau projet
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { clientId, title, keyword, searchIntents } = body;
+  const { clientId, title, keyword, searchIntents, businessObjective } = body;
 
   if (!clientId || !title || !keyword) {
     return NextResponse.json(
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       title,
       keyword,
       searchIntents: searchIntents ?? [],
+      businessObjective: businessObjective ?? null,
       status: "draft",
       currentStep: 0,
     },
