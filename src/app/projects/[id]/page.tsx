@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { WORKFLOW_STEPS } from "@/config/steps";
 import { useProjectWorkflow } from "@/contexts/ProjectWorkflowContext";
+import RoiDashboard from "@/components/analytics/RoiDashboard";
 
 const statusLabels: Record<string, string> = {
   draft: "Brouillon",
@@ -172,6 +173,13 @@ export default function ProjectPage() {
             </Card>
           </div>
         </div>
+
+        {/* Tableau de bord ROI (projets terminés/publiés) */}
+        {(project.status === "completed" || project.status === "published") && (
+          <div className="mt-6">
+            <RoiDashboard projectId={project.id} />
+          </div>
+        )}
       </div>
     </>
   );

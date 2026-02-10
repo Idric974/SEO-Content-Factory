@@ -14,7 +14,8 @@
       "Bash(PGPASSWORD=iydb4BE3H92A6w \"/c/Program Files/PostgreSQL/18/bin/psql.exe\":*)",
       "WebFetch(domain:serpapi.com)",
       "WebFetch(domain:github.com)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(del \"d:\\\\Projets\\\\seo-content-factory\\\\src\\\\components\\\\workflow\\\\ValidationPanel.tsx\")"
     ]
   }
 }

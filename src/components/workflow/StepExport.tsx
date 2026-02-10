@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import InteractiveModuleGenerator from "@/components/workflow/InteractiveModuleGenerator";
 
 interface StepExportProps {
   projectId: string;
@@ -28,6 +29,8 @@ interface PreviewData {
   metaDescription: string;
   introduction: string;
   body: string;
+  authorBlock: string;
+  interactiveModules: string[];
   structuredData: string;
   images: { filename: string; url: string; alt: string }[];
   fullMarkdown: string;
@@ -35,12 +38,19 @@ interface PreviewData {
 
 interface StepData {
   isValidated: boolean;
+  outputData: Record<string, unknown> | null;
+}
+
+interface InteractiveModule {
+  moduleType: string;
+  html: string;
 }
 
 export function StepExport({ projectId }: StepExportProps) {
   const router = useRouter();
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [stepData, setStepData] = useState<StepData | null>(null);
+  const [interactiveModules, setInteractiveModules] = useState<InteractiveModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState<string | null>(null);
   const [wpExpanded, setWpExpanded] = useState(false);
@@ -72,7 +82,13 @@ export function StepExport({ projectId }: StepExportProps) {
         setPreview(await previewRes.json());
       }
       if (stepRes.ok) {
-        setStepData(await stepRes.json());
+        const step = await stepRes.json();
+        setStepData(step);
+        // Restaurer les modules interactifs depuis outputData
+        const outputData = step.outputData as Record<string, unknown> | null;
+        if (outputData?.interactiveModules && Array.isArray(outputData.interactiveModules)) {
+          setInteractiveModules(outputData.interactiveModules as InteractiveModule[]);
+        }
       }
       setLoading(false);
     }
@@ -206,13 +222,23 @@ export function StepExport({ projectId }: StepExportProps) {
               <Eye className="h-4 w-4" />
               Prévisualisation
             </CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Badge variant="outline">
                 {preview.body.split(/\s+/).length} mots
               </Badge>
               <Badge variant="outline">
                 {preview.images.length} images
               </Badge>
+              {preview.authorBlock && (
+                <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
+                  Bloc auteur
+                </Badge>
+              )}
+              {interactiveModules.length > 0 && (
+                <Badge variant="outline" className="bg-purple-50 dark:bg-purple-950">
+                  {interactiveModules.length} module(s)
+                </Badge>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -250,6 +276,24 @@ export function StepExport({ projectId }: StepExportProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modules interactifs (Navboost) */}
+      <InteractiveModuleGenerator
+        projectId={projectId}
+        existingModules={interactiveModules}
+        onModulesChanged={async (modules) => {
+          setInteractiveModules(modules);
+          // Sauvegarder dans step 15 outputData
+          const currentData = (stepData?.outputData as Record<string, unknown>) ?? {};
+          await fetch(`/api/projects/${projectId}/steps/15`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              outputData: { ...currentData, interactiveModules: modules },
+            }),
+          });
+        }}
+      />
 
       {/* Options d'export */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

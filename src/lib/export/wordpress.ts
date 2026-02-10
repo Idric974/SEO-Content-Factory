@@ -89,7 +89,27 @@ export async function publishToWordPress(
     ? markdownToHtml(article.introduction)
     : "";
   const bodyHtml = markdownToHtml(article.body);
-  const content = introHtml + "\n" + bodyHtml;
+  let content = introHtml + "\n" + bodyHtml;
+
+  // Bloc auteur E-E-A-T
+  if (article.authorBlock) {
+    content += `\n\n<div class="author-block eeat-block">\n<h2>À propos de l'auteur</h2>\n${markdownToHtml(article.authorBlock)}\n</div>`;
+  }
+
+  // Modules interactifs
+  if (article.interactiveModules?.length > 0) {
+    for (const module of article.interactiveModules) {
+      content += `\n\n${module}`;
+    }
+  }
+
+  // Recommandations de maillage interne en commentaire
+  if (article.internalLinks?.length > 0) {
+    const linksHtml = article.internalLinks.map(
+      (link) => `  Ancre : "${link.anchor}" → ${link.targetUrl} (pertinence: ${link.relevanceScore}%)${link.freshnessNote ? ` | Freshness: ${link.freshnessNote}` : ""}`
+    );
+    content += `\n\n<!-- Recommandations de maillage interne\n${linksHtml.join("\n")}\n-->`;
+  }
 
   // Ajouter le JSON-LD en fin de contenu
   let fullContent = content;
@@ -148,12 +168,33 @@ export function exportWordPressHtml(article: AssembledArticle): string {
   html += `<!-- Meta Description: ${article.metaDescription} -->\n\n`;
   html += introHtml + "\n\n" + bodyHtml;
 
+  // Bloc auteur E-E-A-T
+  if (article.authorBlock) {
+    html += `\n\n<div class="author-block eeat-block">\n<h2>À propos de l'auteur</h2>\n${markdownToHtml(article.authorBlock)}\n</div>`;
+  }
+
   // Images avec alt
   if (article.images.length > 0) {
     html += "\n\n<!-- Images -->\n";
     for (const img of article.images) {
       html += `<!-- <img src="${img.url}" alt="${img.alt}" /> -->\n`;
     }
+  }
+
+  // Modules interactifs
+  if (article.interactiveModules?.length > 0) {
+    html += "\n\n<!-- Modules Interactifs -->\n";
+    for (const module of article.interactiveModules) {
+      html += `\n${module}\n`;
+    }
+  }
+
+  // Recommandations de maillage interne
+  if (article.internalLinks?.length > 0) {
+    const linksHtml = article.internalLinks.map(
+      (link) => `  Ancre : "${link.anchor}" → ${link.targetUrl} (pertinence: ${link.relevanceScore}%)${link.freshnessNote ? ` | Freshness: ${link.freshnessNote}` : ""}`
+    );
+    html += `\n\n<!-- Recommandations de maillage interne\n${linksHtml.join("\n")}\n-->`;
   }
 
   // JSON-LD

@@ -34,6 +34,7 @@ model Project {
   editorialFormat    String?  @map("editorial_format")   // pas, aida, mece, inverted_pyramid
   status            String   @default("draft") // draft, in_progress, completed, published
   currentStep       Int      @default(0) @map("current_step")
+  roiData           Json?    @map("roi_data")   // Données ROI post-publication (TJM, heures, métriques)
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

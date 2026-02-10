@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Globe, AlertTriangle, Search, Scale, CheckCircle, Target } from "lucide-react";
@@ -17,7 +17,7 @@ import {
   GeneratingIndicator,
 } from "@/components/workflow/GenerateButton";
 import { OutputEditor } from "@/components/workflow/OutputEditor";
-import { ValidationPanel } from "@/components/workflow/ValidationPanel";
+import { ApiMonitorPanel } from "@/components/workflow/ApiMonitorPanel";
 import {
   ChoiceSelector,
   parseNumberedList,
@@ -29,8 +29,27 @@ import {
 } from "@/components/workflow/MetaSelector";
 import { StepImages } from "@/components/workflow/StepImages";
 import { StepExport } from "@/components/workflow/StepExport";
+import PlanAnalyzer from "@/components/workflow/PlanAnalyzer";
+import SectionEditor, { type SectionData } from "@/components/workflow/SectionEditor";
+import TldrGenerator from "@/components/workflow/TldrGenerator";
 import { SerpAnalysisPanel } from "@/components/strategy/SerpAnalysisPanel";
 import { FormatRecommendation } from "@/components/strategy/FormatRecommendation";
+import { parsePlanIntoSections } from "@/lib/plan/sections";
+import { extractQBSTForSections } from "@/lib/plan/qbst";
+import { useGenerateSection } from "@/hooks/useGenerateSection";
+import MediaRecommendation from "@/components/workflow/MediaRecommendation";
+import type { MediaRecommendationItem } from "@/components/workflow/MediaRecommendation";
+import AuthorBlockGenerator from "@/components/workflow/AuthorBlockGenerator";
+import QualityScorePanel from "@/components/workflow/QualityScorePanel";
+import FactCheckPanel from "@/components/workflow/FactCheckPanel";
+import type { FactCheckResult } from "@/components/workflow/FactCheckPanel";
+import AICritiquePanel from "@/components/workflow/AICritiquePanel";
+import type { CritiqueResult } from "@/components/workflow/AICritiquePanel";
+import type { QualityMetrics } from "@/lib/nlp/qualityMetrics";
+import TitleAnalysisPanel from "@/components/workflow/TitleAnalysisPanel";
+import InternalLinkAssistant from "@/components/workflow/InternalLinkAssistant";
+import WysiwygEditor from "@/components/workflow/WysiwygEditor";
+import type { InternalLinkSuggestion } from "@/components/workflow/InternalLinkAssistant";
 import type { SERPAnalysis } from "@/lib/serpapi/client";
 
 interface StepData {
@@ -65,6 +84,16 @@ export default function StepPage() {
 
   const { isGenerating, output, error, stats, searchStatus, generate, cancel, setOutput } =
     useGenerate();
+
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const prevGenerating = useRef(false);
+
+  useEffect(() => {
+    if (prevGenerating.current && !isGenerating) {
+      setRefreshTrigger((prev) => prev + 1);
+    }
+    prevGenerating.current = isGenerating;
+  }, [isGenerating]);
 
   const fetchStepData = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/steps/${stepNumber}`);
@@ -201,6 +230,19 @@ export default function StepPage() {
       refreshProject={refreshProject}
       router={router}
     />;
+  }
+
+  // Étape 6 : Rédaction section par section
+  if (stepNumber === 6) {
+    return (
+      <Step6Article
+        projectId={projectId}
+        projectInfo={projectInfo}
+        stepData={stepData}
+        refreshProject={refreshProject}
+        router={router}
+      />
+    );
   }
 
   // Étape 11 : Génération d'images DALL-E
@@ -354,7 +396,7 @@ export default function StepPage() {
                   stepNumber === 1
                     ? "Choisissez un titre"
                     : stepNumber === 8
-                      ? "Choisissez une introduction"
+                      ? "Choisissez une introduction (PAS ou PATT)"
                       : "Sélectionnez une option"
                 }
               />
@@ -372,19 +414,144 @@ export default function StepPage() {
               />
             )}
 
-            {/* Éditeur de texte */}
-            <OutputEditor
-              value={output}
-              onChange={setOutput}
-              readOnly={isGenerating}
-              label={
-                stepData?.isValidated
-                  ? "Résultat (validé)"
-                  : isGenerating
-                    ? "Génération en cours..."
-                    : "Résultat (modifiable)"
-              }
-            />
+            {/* Analyse titres concurrents (étape 13) */}
+            {stepNumber === 13 && !isGenerating && projectInfo?.serpAnalysis && (
+              <TitleAnalysisPanel
+                keyword={projectInfo.keyword}
+                serpCompetitors={
+                  ((projectInfo.serpAnalysis as unknown as SERPAnalysis)?.organicResults ?? [])
+                    .slice(0, 10)
+                    .map((r) => ({ title: r.title, position: r.position, link: r.link }))
+                }
+              />
+            )}
+
+            {/* Recommandation médias (étape 9) */}
+            {stepNumber === 9 && !isGenerating && (
+              <MediaRecommendation
+                projectId={projectId}
+                existingRecommendations={
+                  (stepData?.outputData as Record<string, unknown>)?.mediaRecommendations as MediaRecommendationItem[] | undefined
+                }
+              />
+            )}
+
+            {/* Éditeur de texte — WYSIWYG au step 7, textarea ailleurs */}
+            {stepNumber === 7 ? (
+              <WysiwygEditor
+                value={output}
+                onChange={setOutput}
+                readOnly={isGenerating}
+                label={
+                  stepData?.isValidated
+                    ? "Résultat (validé)"
+                    : isGenerating
+                      ? "Génération en cours..."
+                      : "Article optimisé (WYSIWYG)"
+                }
+              />
+            ) : (
+              <OutputEditor
+                value={output}
+                onChange={setOutput}
+                readOnly={isGenerating}
+                label={
+                  stepData?.isValidated
+                    ? "Résultat (validé)"
+                    : isGenerating
+                      ? "Génération en cours..."
+                      : "Résultat (modifiable)"
+                }
+              />
+            )}
+
+            {/* Analyseur de plan (étape 5) */}
+            {stepNumber === 5 && output && !isGenerating && (
+              <PlanAnalyzer
+                planText={output}
+                projectId={projectId}
+                onApplySuggestions={(updated) => setOutput(updated)}
+              />
+            )}
+
+            {/* TL;DR (étape 7) */}
+            {stepNumber === 7 && output && !isGenerating && (
+              <TldrGenerator
+                projectId={projectId}
+                existingTldr={(stepData?.outputData as Record<string, unknown>)?.tldr as string | undefined}
+                onTldrGenerated={async (tldr) => {
+                  // Sauvegarde le TL;DR dans outputData du step 7
+                  const currentData = (stepData?.outputData as Record<string, unknown>) ?? {};
+                  await fetch(`/api/projects/${projectId}/steps/7`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      outputText: output,
+                      outputData: { ...currentData, text: output, tldr },
+                    }),
+                  });
+                }}
+              />
+            )}
+
+            {/* Bloc Auteur E-E-A-T (étape 7) */}
+            {stepNumber === 7 && output && !isGenerating && (
+              <AuthorBlockGenerator
+                projectId={projectId}
+                existingAuthorBlock={(stepData?.outputData as Record<string, unknown>)?.authorBlock as string | undefined}
+                onAuthorBlockGenerated={async (authorBlock) => {
+                  const currentData = (stepData?.outputData as Record<string, unknown>) ?? {};
+                  await fetch(`/api/projects/${projectId}/steps/7`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      outputText: output,
+                      outputData: { ...currentData, text: output, authorBlock },
+                    }),
+                  });
+                }}
+              />
+            )}
+
+            {/* Score de Qualité NLP (étape 7) */}
+            {stepNumber === 7 && output && !isGenerating && (
+              <QualityScorePanel
+                projectId={projectId}
+                existingMetrics={(stepData?.outputData as Record<string, unknown>)?.qualityScore as QualityMetrics | undefined}
+              />
+            )}
+
+            {/* Fact-Checking (étape 7) */}
+            {stepNumber === 7 && output && !isGenerating && (
+              <FactCheckPanel
+                projectId={projectId}
+                existingResults={(stepData?.outputData as Record<string, unknown>)?.factCheck as FactCheckResult[] | undefined}
+              />
+            )}
+
+            {/* Critique IA (étape 7) */}
+            {stepNumber === 7 && output && !isGenerating && (
+              <AICritiquePanel
+                projectId={projectId}
+                existingCritique={(stepData?.outputData as Record<string, unknown>)?.aiCritique as CritiqueResult | undefined}
+              />
+            )}
+
+            {/* Maillage interne sémantique (étape 14) */}
+            {stepNumber === 14 && output && !isGenerating && (
+              <InternalLinkAssistant
+                projectId={projectId}
+                existingSuggestions={
+                  (stepData?.outputData as Record<string, unknown>)?.internalLinks as InternalLinkSuggestion[] | undefined
+                }
+                existingSitePages={
+                  (stepData?.outputData as Record<string, unknown>)?.sitePages as { url: string; title: string; snippet: string; relevance: number }[] | undefined
+                }
+                existingSiteUrl={
+                  (stepData?.outputData as Record<string, unknown>)?.siteUrl as string | undefined
+                }
+              />
+            )}
 
             {/* Sauvegarder */}
             {output && !isGenerating && !stepData?.isValidated && (
@@ -396,26 +563,15 @@ export default function StepPage() {
             )}
           </div>
 
-          {/* Sidebar : validation */}
-          <div className="space-y-4">
-            <ValidationPanel
-              isValidated={stepData?.isValidated ?? false}
-              hasOutput={canValidate}
-              isGenerating={isGenerating || validating}
-              onValidate={handleValidate}
-              stats={
-                stats ??
-                (stepData?.tokensUsed
-                  ? {
-                      inputTokens: 0,
-                      outputTokens: stepData.tokensUsed,
-                      costUsd: stepData.costUsd ?? "0",
-                      model: "Précédente génération",
-                    }
-                  : null)
-              }
-            />
-          </div>
+          {/* Sidebar : monitoring API */}
+          <ApiMonitorPanel
+            projectId={projectId}
+            isValidated={stepData?.isValidated ?? false}
+            hasOutput={canValidate}
+            isGenerating={isGenerating || validating}
+            onValidate={handleValidate}
+            refreshTrigger={refreshTrigger}
+          />
         </div>
       </div>
     </>
@@ -578,6 +734,334 @@ function Step0Strategy({
               </Link>
             </Button>
           )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// --- Composant Step 6 : Rédaction section par section ---
+
+function Step6Article({
+  projectId,
+  projectInfo,
+  stepData,
+  refreshProject,
+  router,
+}: {
+  projectId: string;
+  projectInfo: import("@/contexts/ProjectWorkflowContext").ProjectData | null;
+  stepData: StepData | null;
+  refreshProject: () => Promise<void>;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const [sectionOutputs, setSectionOutputs] = useState<SectionData[]>([]);
+  const [isAssembled, setIsAssembled] = useState(false);
+  const [assembledText, setAssembledText] = useState("");
+  const [validating, setValidating] = useState(false);
+
+  const { generatingIndex, streamingText, error, generateSection, cancel } =
+    useGenerateSection();
+
+  const [refreshTrigger6, setRefreshTrigger6] = useState(0);
+  const prevGeneratingIndex = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (prevGeneratingIndex.current !== null && generatingIndex === null) {
+      setRefreshTrigger6((prev) => prev + 1);
+    }
+    prevGeneratingIndex.current = generatingIndex;
+  }, [generatingIndex]);
+
+  // Récupérer le plan validé (step 5)
+  const planText =
+    projectInfo?.workflowSteps.find((s) => s.stepNumber === 5)?.outputText ?? "";
+  const sections = planText ? parsePlanIntoSections(planText) : [];
+
+  // Extraire les termes QBST
+  const serpAnalysis = projectInfo?.serpAnalysis as Record<string, unknown> | null;
+  const competitorData = serpAnalysis?.organicResults
+    ? (serpAnalysis.organicResults as Array<{ title: string; snippet: string }>).slice(0, 10)
+    : [];
+  const researchText =
+    projectInfo?.workflowSteps.find((s) => s.stepNumber === 2)?.outputText ?? "";
+  const paaQuestions = serpAnalysis?.peopleAlsoAsk
+    ? (serpAnalysis.peopleAlsoAsk as Array<{ question: string }>).map((p) => p.question)
+    : [];
+
+  const qbstData = sections.length > 0
+    ? extractQBSTForSections(sections, competitorData, researchText, paaQuestions)
+    : [];
+
+  // Restaurer la progression depuis outputData
+  useEffect(() => {
+    if (stepData?.outputData) {
+      const data = stepData.outputData as Record<string, unknown>;
+      if (data.sections && Array.isArray(data.sections)) {
+        setSectionOutputs(data.sections as SectionData[]);
+      }
+      if (data.assembled) {
+        setIsAssembled(true);
+        if (stepData.outputText) {
+          setAssembledText(stepData.outputText);
+        }
+      }
+    }
+
+    // Initialiser les sections manquantes
+    if (sections.length > 0) {
+      setSectionOutputs((prev) => {
+        const updated = [...prev];
+        for (const section of sections) {
+          const exists = updated.find((s) => s.index === section.index);
+          if (!exists) {
+            updated.push({
+              index: section.index,
+              heading: section.h2.text,
+              content: null,
+              status: "pending",
+              wordCount: 0,
+            });
+          }
+        }
+        return updated.sort((a, b) => a.index - b.index);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepData]);
+
+  function handleGenerateSection(index: number) {
+    const section = sections[index];
+    if (!section) return;
+
+    const previousSection = sectionOutputs.find((s) => s.index === index - 1);
+    const qbst = qbstData.find((q) => q.sectionIndex === index);
+
+    generateSection(
+      projectId,
+      index,
+      section.h2.text,
+      section.subsections.map((s) => s.text),
+      previousSection?.content ?? "",
+      qbst?.terms ?? [],
+      (sectionIndex, text) => {
+        setSectionOutputs((prev) => {
+          const updated = prev.map((s) =>
+            s.index === sectionIndex
+              ? {
+                  ...s,
+                  content: text,
+                  status: "done" as const,
+                  wordCount: text.split(/\s+/).filter(Boolean).length,
+                }
+              : s
+          );
+          return updated;
+        });
+        setIsAssembled(false);
+      }
+    );
+  }
+
+  async function handleGenerateAll() {
+    // Tableau local pour suivre le contenu généré pendant la boucle
+    // (évite le bug de closure stale sur sectionOutputs)
+    const completedTexts: Record<number, string> = {};
+
+    // Pré-remplir avec les sections déjà rédigées
+    for (const s of sectionOutputs) {
+      if ((s.status === "done" || s.status === "edited") && s.content) {
+        completedTexts[s.index] = s.content;
+      }
+    }
+
+    for (let i = 0; i < sections.length; i++) {
+      const sectionData = sectionOutputs.find((s) => s.index === i);
+      if (sectionData?.status === "done" || sectionData?.status === "edited") {
+        continue; // Skip already done sections
+      }
+
+      await new Promise<void>((resolve) => {
+        const section = sections[i];
+        const previousText = completedTexts[i - 1] ?? "";
+        const qbst = qbstData.find((q) => q.sectionIndex === i);
+
+        generateSection(
+          projectId,
+          i,
+          section.h2.text,
+          section.subsections.map((s) => s.text),
+          previousText,
+          qbst?.terms ?? [],
+          (sectionIndex, text) => {
+            completedTexts[sectionIndex] = text;
+            setSectionOutputs((prev) =>
+              prev.map((s) =>
+                s.index === sectionIndex
+                  ? {
+                      ...s,
+                      content: text,
+                      status: "done" as const,
+                      wordCount: text.split(/\s+/).filter(Boolean).length,
+                    }
+                  : s
+              )
+            );
+            setIsAssembled(false);
+            resolve();
+          }
+        );
+      });
+    }
+  }
+
+  function handleEditSection(index: number, text: string) {
+    setSectionOutputs((prev) =>
+      prev.map((s) =>
+        s.index === index
+          ? {
+              ...s,
+              content: text,
+              status: "edited" as const,
+              wordCount: text.split(/\s+/).filter(Boolean).length,
+            }
+          : s
+      )
+    );
+    setIsAssembled(false);
+  }
+
+  async function handleAssemble() {
+    const assembled = sectionOutputs
+      .sort((a, b) => a.index - b.index)
+      .map((s) => s.content ?? "")
+      .join("\n\n");
+
+    setAssembledText(assembled);
+    setIsAssembled(true);
+
+    // Sauvegarder l'article assemblé
+    await fetch(`/api/projects/${projectId}/steps/6`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        outputText: assembled,
+        outputData: JSON.parse(
+          JSON.stringify({ sections: sectionOutputs, assembled: true })
+        ),
+      }),
+    });
+  }
+
+  async function handleValidate() {
+    setValidating(true);
+
+    await fetch(`/api/projects/${projectId}/steps/6`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        outputText: assembledText,
+        outputData: JSON.parse(
+          JSON.stringify({ sections: sectionOutputs, assembled: true, text: assembledText })
+        ),
+        isValidated: true,
+      }),
+    });
+
+    await refreshProject();
+    setValidating(false);
+    router.push(`/projects/${projectId}/steps/7`);
+  }
+
+  const isGenerating = generatingIndex !== null;
+  const totalWords = sectionOutputs.reduce((acc, s) => acc + s.wordCount, 0);
+
+  return (
+    <>
+      <Header title="Rédaction de l&apos;article" />
+      <div className="p-6">
+        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+          {/* Zone principale */}
+          <div className="space-y-6">
+            {/* Instructions */}
+            <Card>
+              <CardContent className="pt-4">
+                <p className="text-sm text-muted-foreground">
+                  L&apos;article est rédigé section par section pour garantir la profondeur
+                  et permettre la relecture. Générez chaque section individuellement ou
+                  utilisez &quot;Générer toutes les sections&quot;. Les termes QBST (en bleu) sont
+                  des mots-clés à intégrer naturellement.
+                </p>
+              </CardContent>
+            </Card>
+
+            {error && (
+              <Card className="border-destructive">
+                <CardContent className="pt-6">
+                  <p className="text-sm text-destructive">{error}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {sections.length > 0 ? (
+              <SectionEditor
+                sections={sections}
+                sectionOutputs={sectionOutputs}
+                qbstData={qbstData}
+                generatingIndex={generatingIndex}
+                streamingText={streamingText}
+                onGenerateSection={handleGenerateSection}
+                onGenerateAll={handleGenerateAll}
+                onEditSection={handleEditSection}
+                onAssemble={handleAssemble}
+                isAssembled={isAssembled}
+              />
+            ) : (
+              <Card className="border-dashed">
+                <CardContent className="py-8 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Aucun plan trouvé. Validez d&apos;abord l&apos;étape 5 (Plan) pour commencer la rédaction.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Sidebar : monitoring API */}
+          <div className="space-y-4">
+            <ApiMonitorPanel
+              projectId={projectId}
+              isValidated={stepData?.isValidated ?? false}
+              hasOutput={isAssembled && !isGenerating}
+              isGenerating={isGenerating || validating}
+              onValidate={handleValidate}
+              refreshTrigger={refreshTrigger6}
+            />
+
+            {/* Statistiques */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Statistiques</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Sections</span>
+                  <span>
+                    {sectionOutputs.filter((s) => s.status === "done" || s.status === "edited").length}
+                    /{sections.length}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Mots total</span>
+                  <span>{totalWords}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Assemblé</span>
+                  <span>{isAssembled ? "Oui" : "Non"}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </>

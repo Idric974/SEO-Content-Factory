@@ -15,12 +15,25 @@ interface ProjectData {
   images: { filename: string | null; imageUrl: string | null; altText: string | null }[];
 }
 
+export interface InternalLinkRecommendation {
+  anchor: string;
+  targetUrl: string;
+  targetTitle: string;
+  relevanceScore: number;
+  articleContext: string;
+  freshnessNote: string | null;
+}
+
 export interface AssembledArticle {
   title: string;
   metaTitle: string;
   metaDescription: string;
+  tldr: string;
   introduction: string;
   body: string;
+  authorBlock: string;
+  interactiveModules: string[];
+  internalLinks: InternalLinkRecommendation[];
   structuredData: string;
   images: { filename: string; url: string; alt: string }[];
   fullMarkdown: string;
@@ -62,6 +75,10 @@ export function assembleArticle(project: ProjectData): AssembledArticle {
     introduction = introText;
   }
 
+  // TL;DR (étape 7 outputData)
+  const step7Data = getStepData(steps, 7);
+  const tldr = (step7Data?.tldr as string) ?? "";
+
   // Corps de l'article optimisé (étape 7)
   const body = getStepOutput(steps, 7);
 
@@ -69,6 +86,17 @@ export function assembleArticle(project: ProjectData): AssembledArticle {
   const step13Data = getStepData(steps, 13);
   const metaTitle = (step13Data?.selectedMetaTitle as string) ?? title;
   const metaDescription = (step13Data?.selectedMetaDescription as string) ?? "";
+
+  // Bloc auteur E-E-A-T (step 7 outputData)
+  const authorBlock = (step7Data?.authorBlock as string) ?? "";
+
+  // Modules interactifs (step 15 outputData)
+  const step15Data = getStepData(steps, 15);
+  const interactiveModules = (step15Data?.interactiveModules as string[]) ?? [];
+
+  // Liens internes (step 14 outputData)
+  const step14Data = getStepData(steps, 14);
+  const internalLinks = (step14Data?.internalLinks as InternalLinkRecommendation[]) ?? [];
 
   // Données structurées (étape 14)
   const structuredData = getStepOutput(steps, 14);
@@ -88,8 +116,12 @@ export function assembleArticle(project: ProjectData): AssembledArticle {
   // Assemblage Markdown complet
   const fullMarkdown = buildFullMarkdown({
     title,
+    tldr,
     introduction,
     body,
+    authorBlock,
+    interactiveModules,
+    internalLinks,
     images,
     structuredData,
     metaTitle,
@@ -100,8 +132,12 @@ export function assembleArticle(project: ProjectData): AssembledArticle {
     title,
     metaTitle,
     metaDescription,
+    tldr,
     introduction,
     body,
+    authorBlock,
+    interactiveModules,
+    internalLinks,
     structuredData,
     images,
     fullMarkdown,
@@ -140,8 +176,12 @@ function parseAltTexts(text: string): Record<string, string> {
  */
 function buildFullMarkdown(parts: {
   title: string;
+  tldr: string;
   introduction: string;
   body: string;
+  authorBlock: string;
+  interactiveModules: string[];
+  internalLinks: InternalLinkRecommendation[];
   images: { filename: string; url: string; alt: string }[];
   structuredData: string;
   metaTitle: string;
@@ -158,6 +198,11 @@ description: "${parts.metaDescription}"
   // Titre
   sections.push(`# ${parts.title}`);
 
+  // TL;DR (above the fold)
+  if (parts.tldr) {
+    sections.push(`> **TL;DR** — ${parts.tldr}`);
+  }
+
   // Introduction
   if (parts.introduction) {
     sections.push(parts.introduction);
@@ -168,11 +213,32 @@ description: "${parts.metaDescription}"
     sections.push(parts.body);
   }
 
+  // Bloc auteur E-E-A-T
+  if (parts.authorBlock) {
+    sections.push(`---\n\n## À propos de l'auteur\n\n${parts.authorBlock}`);
+  }
+
+  // Recommandations de liens internes en commentaire
+  if (parts.internalLinks.length > 0) {
+    const linksLines = parts.internalLinks.map(
+      (link) =>
+        `- Ancre : "${link.anchor}" → ${link.targetUrl} (pertinence: ${link.relevanceScore}%)${link.freshnessNote ? ` | Freshness: ${link.freshnessNote}` : ""}`
+    );
+    sections.push(`<!-- Recommandations de maillage interne\n${linksLines.join("\n")}\n-->`);
+  }
+
   // Données structurées en commentaire
   if (parts.structuredData) {
     sections.push(`<!-- Schema.org JSON-LD
 ${parts.structuredData}
 -->`);
+  }
+
+  // Modules interactifs en commentaire HTML (pour export HTML/WordPress)
+  if (parts.interactiveModules.length > 0) {
+    for (let i = 0; i < parts.interactiveModules.length; i++) {
+      sections.push(`<!-- Module Interactif ${i + 1}\n${parts.interactiveModules[i]}\n-->`);
+    }
   }
 
   return sections.join("\n\n");

@@ -30,6 +30,7 @@ export interface ProjectData {
   editorialFormat: string | null;
   status: string;
   currentStep: number;
+  roiData: unknown;
   createdAt: string;
   updatedAt: string;
   client: { id: string; name: string; slug: string; persona: unknown };

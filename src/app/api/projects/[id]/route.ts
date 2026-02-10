@@ -29,7 +29,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
 export async function PUT(request: NextRequest, { params }: Params) {
   const { id } = await params;
   const body = await request.json();
-  const { title, keyword, searchIntents, status, currentStep } = body;
+  const { title, keyword, searchIntents, status, currentStep, roiData } = body;
 
   const existing = await prisma.project.findUnique({ where: { id } });
   if (!existing) {
@@ -47,6 +47,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
       ...(searchIntents !== undefined && { searchIntents }),
       ...(status !== undefined && { status }),
       ...(currentStep !== undefined && { currentStep }),
+      ...(roiData !== undefined && { roiData: JSON.parse(JSON.stringify(roiData)) }),
     },
     include: { client: true },
   });
