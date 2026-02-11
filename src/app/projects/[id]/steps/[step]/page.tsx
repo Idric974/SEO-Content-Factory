@@ -22,7 +22,7 @@ import {
   ChoiceSelector,
   parseNumberedList,
 } from "@/components/workflow/ChoiceSelector";
-import { StepContext } from "@/components/workflow/StepContext";
+
 import {
   MetaSelector,
   parseMetaOutput,
@@ -191,23 +191,6 @@ export default function StepPage() {
     });
   }
 
-  // --- Contexte des étapes précédentes ---
-  function buildContextItems() {
-    if (!projectInfo || !stepDef) return [];
-    return stepDef.dependsOn
-      .map((depNum) => {
-        const dep = projectInfo.workflowSteps.find((s) => s.stepNumber === depNum);
-        const depDef = WORKFLOW_STEPS.find((s) => s.number === depNum);
-        if (!dep?.outputText || !depDef) return null;
-        const summary =
-          dep.outputText.length > 500
-            ? dep.outputText.slice(0, 500) + "..."
-            : dep.outputText;
-        return { stepNumber: depNum, stepName: depDef.name, summary };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null);
-  }
-
   // --- Rendu ---
 
   if (loading) {
@@ -288,8 +271,6 @@ export default function StepPage() {
     canValidate = output.length > 0 && !isGenerating;
   }
 
-  const contextItems = buildContextItems();
-
   return (
     <>
       <Header title={stepDef?.name ?? `Étape ${stepNumber}`} />
@@ -297,12 +278,6 @@ export default function StepPage() {
         <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
           {/* Zone principale */}
           <div className="space-y-6">
-            {/* Instructions + contexte */}
-            <StepContext
-              items={contextItems}
-              userInstructions={stepDef?.userInstructions}
-            />
-
             {/* En-tête de l'étape + bouton générer */}
             <Card>
               <CardHeader className="pb-2">

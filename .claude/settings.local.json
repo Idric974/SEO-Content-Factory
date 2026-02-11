@@ -15,7 +15,8 @@
       "WebFetch(domain:serpapi.com)",
       "WebFetch(domain:github.com)",
       "Bash(npx tsc:*)",
-      "Bash(del \"d:\\\\Projets\\\\seo-content-factory\\\\src\\\\components\\\\workflow\\\\ValidationPanel.tsx\")"
+      "Bash(del \"d:\\\\Projets\\\\seo-content-factory\\\\src\\\\components\\\\workflow\\\\ValidationPanel.tsx\")",
+      "WebFetch(domain:docs.dataforseo.com)"
     ]
   }
 }
